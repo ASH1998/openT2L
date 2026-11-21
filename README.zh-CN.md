@@ -49,10 +49,32 @@ emit_adapter(gen, torch.stack([embed(b) for b in examples]), "adapter/")
 - **任务嵌入**：默认取某一隐藏层在答案 token 上的平均，再对 k 个示例求平均。可以替换为任何返回定长向量的函数，但训练和使用时必须用同一个。
 - **训练**：只训练超网络，基座模型保持冻结。
 
+## 预训练超网络
+
+| 超网络 | 基座模型 | 任务类型 | 许可 |
+| --- | --- | --- | --- |
+| [ASHu2/openT2L-MiniCPM-V-4.7-1B-docs](https://huggingface.co/ASHu2/openT2L-MiniCPM-V-4.7-1B-docs) | openbmb/MiniCPM-V-4.7-1B | 文档 → JSON 信息抽取（表单、票据、表格、发票；中英文） | CC-BY-NC-4.0 |
+
+```python
+from huggingface_hub import snapshot_download
+from t2l import load_hypernet
+gen, cfg = load_hypernet(snapshot_download("ASHu2/openT2L-MiniCPM-V-4.7-1B-docs"), device="cuda")
+print(cfg["embedding"])   # 该超网络要求的示例嵌入方式
+```
+
+模型卡中有完整的 MiniCPM-V 示例嵌入代码。
+
+规格：
+- 7220 万参数；
+- 为语言模型的 48 个模块生成 rank-8 LoRA：6 个全注意力层的 q/v，以及 18 个线性注意力层的输入、输出投影；
+- 在 333 个文档任务上训练，每个任务使用 k ∈ {1, 2, 4, 8} 页示例。
+
+生成的每个 LoRA 都是普通的 PEFT 适配器，fp16 下约 3.6 MB（180 万参数）。部分训练数据集仅限非商业使用，因此该权重采用非商业许可。
+
 ## 结果
 
 本项目为 MiniCPM Spark Program 开发，基座模型为 MiniCPM-V-4.7-1B，任务为文档信息抽取。在 78 个留出的文档任务上，由 4 页示例生成的适配器把字段级 F1 从 0.728 提升到 0.881（+0.154，95% 置信区间 +0.116 至 +0.195），78 个任务中有 71 个提升。该结果只与基座模型做了比较。协议、数据与局限性见 [openBMB-spark-t2l](https://github.com/ASH1998/openBMB-spark-t2l) 仓库。
 
 ## 许可
 
-Apache-2.0。预训练超网络权重发布时遵循其训练数据的许可，单独列出。
+代码：Apache-2.0。预训练超网络权重遵循其训练数据的许可，见上表。

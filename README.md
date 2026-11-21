@@ -85,10 +85,32 @@ with LoRAInjector(model, gen.targets, gen.scale) as inj:
 - **Task embedding.** By default, the mean of a hidden layer over each example's answer tokens, averaged over the k examples. Any function that returns a fixed-size vector works, as long as you use the same one in training and at use time.
 - **Training.** Sample a task, embed k support examples, emit an adapter, inject it, and take the frozen model's loss on another example from the same task. Only the hypernetwork is trained.
 
+## Pretrained hypernetworks
+
+| Hypernetwork | Base model | Task family | Licence |
+| --- | --- | --- | --- |
+| [ASHu2/openT2L-MiniCPM-V-4.7-1B-docs](https://huggingface.co/ASHu2/openT2L-MiniCPM-V-4.7-1B-docs) | openbmb/MiniCPM-V-4.7-1B | document → JSON extraction (forms, receipts, tables, invoices; Chinese and English) | CC-BY-NC-4.0 |
+
+```python
+from huggingface_hub import snapshot_download
+from t2l import load_hypernet
+gen, cfg = load_hypernet(snapshot_download("ASHu2/openT2L-MiniCPM-V-4.7-1B-docs"), device="cuda")
+print(cfg["embedding"])   # how examples must be embedded for this hypernetwork
+```
+
+The model card has the full example-embedding code for MiniCPM-V.
+
+Specifications:
+- 72.2M parameters;
+- emits rank-8 LoRAs for 48 language-model modules (q/v in the 6 full-attention layers, plus the in/out projections in the 18 linear-attention layers);
+- trained on 333 document tasks, with k ∈ {1, 2, 4, 8} example pages per task.
+
+Each LoRA it emits is an ordinary PEFT adapter of about 3.6 MB in fp16 (1.8M parameters). The licence is non-commercial because some of the training datasets are non-commercial.
+
 ## Results
 
 openT2L was built for the MiniCPM Spark Program, for document extraction with MiniCPM-V-4.7-1B. On 78 held-out document tasks, adapters emitted from 4 example pages raised field-level F1 from 0.728 to 0.881 (+0.154, 95% CI +0.116 to +0.195), and 71 of the 78 tasks improved. That comparison is against the base model only. Protocol, data and caveats are in the [openBMB-spark-t2l](https://github.com/ASH1998/openBMB-spark-t2l) repository.
 
 ## Licence
 
-Apache-2.0. Pretrained hypernetwork weights, when published, carry the licence of their training data. They are listed separately.
+Code: Apache-2.0. Pretrained hypernetwork weights carry the licence of their training data, listed in the table above.
